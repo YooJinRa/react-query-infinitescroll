@@ -1,38 +1,36 @@
 import { useEffect } from "react";
 import { useInfiniteQuery } from "react-query";
+import { useInView } from "react-intersection-observer";
 
 const fetchRepositories = async (page = 1) => {
   const response = await fetch(`https://api.github.com/search/repositories?q=topic:reactjs&per_page=30=page=${page}`);
   return response.json();
+
+  // const { posts, isLast } = res.data;
+  // return { posts, nextPage: pageParam + 1, isLast };
 }
 function App() {
-  const { data, hasNextPage, fetchNextPage } = useInfiniteQuery("repositories",
+  const { ref, inView } = useInView();
+  const { data, status, fetchNextPage, isFetchingNextPage } = useInfiniteQuery("repositories",
     ({ pageParam = 1 }) => fetchRepositories(pageParam), {
     getNextPageParam: (lastPage, allPages) => {
       const maxPages = lastPage.total_count / 30; // 총 페이지수
       const nextPage = allPages.length + 1; // 다음 페이지
       return nextPage <= maxPages ? nextPage : undefined;
 
+      // !lastPage.isLast ? lastPage.nextPage : undefined,
+
     }
   });
 
   useEffect(() => {
-    let fetching = false;
-    const onScroll = async (event) => {
-      const { scrollHeight, scrollTop, clientHeight } = event.target.scrollingElement;
 
-      if (!fetching && scrollHeight - scrollTop <= clientHeight * 1.5) {
-        fetching = true;
-        if (hasNextPage) await fetchNextPage();
-        fetching = false;
-      }
-    }
-    document.addEventListener("scroll", onScroll);
-    return () => {
-      document.removeEventListener("scroll", onScroll);
-    }
+    if (inView) fetchNextPage();
 
-  }, []);
+  }, [inView]);
+
+  if (status === "loading") return <div>Loading!!!</div>;
+  if (status === "error") return <div>error!!!</div>;
 
   console.log(data);
   return (
@@ -40,7 +38,7 @@ function App() {
       <h1>Infinite Scroll</h1>
       <ul>
         {
-          data.pages.map((page) => (
+          data?.pages.map((page) => (
             page.items.map((repo) => (
               <li key={repo.id}>
                 <p><b>{repo.name}</b></p>
@@ -50,6 +48,7 @@ function App() {
           ))
         }
       </ul>
+      {isFetchingNextPage ? <div>Loading!!!!!!!!</div> : <div ref={ref}></div>}
     </main>
   );
 }
